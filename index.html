@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infinex Yaprun Season 1 Rewards Calculator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            background: linear-gradient(to bottom right, #f97316, #fed7aa);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Montserrat', sans-serif;
+        }
+        .calculator-container {
+            background: white;
+            border-radius: 1rem;
+            padding: 2rem;
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.2);
+            width: 100%;
+            max-width: 600px;
+        }
+        .result-box {
+            background: #fff7ed;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            margin-top: 1.5rem;
+            border-left: 4px solid #f97316;
+        }
+        .logo {
+            max-width: 150px;
+            margin-bottom: 1.5rem;
+        }
+        #rewardChart {
+            margin-top: 2rem;
+            background: #fff7ed;
+            border-radius: 0.5rem;
+            padding: 1rem;
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="calculator-container">
+        <img src="logo.png" alt="Infinex Logo" class="logo mx-auto">
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">Infinex Yaprun Season 1 Rewards</h1>
+        
+        <form id="calculatorForm" class="space-y-6">
+            <div>
+                <label for="rank" class="block text-sm font-medium text-gray-700">Your Rank (1-500)</label>
+                <input type="number" id="rank" min="1" max="500" required
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 py-2">
+            </div>
+            <div>
+                <label for="patronPrice" class="block text-sm font-medium text-gray-700">Patron NFT Price (USD)</label>
+                <input type="number" id="patronPrice" step="0.01" min="0" required
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 py-2">
+            </div>
+            <button type="submit"
+                class="w-full bg-orange-600 text-white py-3 rounded-md hover:bg-orange-700 transition text-lg">Calculate Rewards</button>
+        </form>
+        
+        <div id="result" class="result-box hidden">
+            <p class="text-gray-800 text-lg"><strong>Rank:</strong> <span id="resultRank"></span></p>
+            <p class="text-gray-800 text-lg"><strong>Rewards (µPatrons):</strong> <span id="resultMicroPatrons"></span></p>
+            <p class="text-gray-800 text-lg"><strong>USD Value:</strong> <span id="resultUSD"></span></p>
+        </div>
+        
+        <div class="mt-6">
+            <h2 class="text-lg font-medium text-gray-700 mb-4">Reward Distribution (Top 500 Ranks)</h2>
+            <canvas id="rewardChart" class="w-full"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // Optimized reward data - only storing what's needed
+        const rewardsData = Array.from({length: 500}, (_, i) => {
+            const rank = i + 1;
+            let microPatrons;
+            
+            // Handle the fixed reward tiers
+            if (rank >= 360) {
+                microPatrons = rank >= 361 ? 23076 : 25026;
+            } 
+            // Handle the logarithmic decay for top ranks
+            else {
+                // This formula approximates the reward curve without storing all values
+                const baseReward = 10000000 / Math.pow(rank, 0.7);
+                microPatrons = Math.floor(baseReward);
+                
+                // Special cases for top ranks
+                if (rank === 1) microPatrons = 10332020;
+                if (rank === 2) microPatrons = 4088976;
+                if (rank === 3) microPatrons = 3365534;
+            }
+            
+            return {
+                rank,
+                microPatrons,
+                percentage: (microPatrons / 150000000 * 100).toFixed(6)
+            };
+        });
+
+        // Initialize chart
+        const ctx = document.getElementById('rewardChart').getContext('2d');
+        const rewardChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: rewardsData.map(item => item.rank),
+                datasets: [{
+                    label: 'Season 1 Rewards (µPatrons)',
+                    data: rewardsData.map(item => item.microPatrons),
+                    borderColor: '#f97316',
+                    backgroundColor: 'rgba(249, 115, 22, 0.2)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: { 
+                        title: { display: true, text: 'µPatrons' },
+                        beginAtZero: true
+                    },
+                    x: { 
+                        title: { display: true, text: 'Rank' },
+                        reverse: true
+                    }
+                }
+            }
+        });
+
+        // Form submission handler
+        document.getElementById('calculatorForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const rank = parseInt(document.getElementById('rank').value);
+            const patronPrice = parseFloat(document.getElementById('patronPrice').value);
+
+            // Validate inputs
+            if (rank < 1 || rank > 500 || isNaN(patronPrice) || patronPrice <= 0) {
+                alert('Please enter a valid rank (1-500) and a positive Patron NFT price.');
+                return;
+            }
+
+            // Find reward data (array is 0-indexed)
+            const reward = rewardsData[rank - 1];
+            
+            // Calculate USD value
+            const usdValue = (reward.microPatrons / 1000000 * patronPrice).toFixed(2);
+
+            // Display results
+            document.getElementById('resultRank').textContent = rank;
+            document.getElementById('resultMicroPatrons').textContent = reward.microPatrons.toLocaleString();
+            document.getElementById('resultUSD').textContent = `$${usdValue}`;
+            document.getElementById('result').classList.remove('hidden');
+            
+            // Highlight the selected rank on the chart
+            rewardChart.setActiveElements([{
+                datasetIndex: 0,
+                index: rank - 1
+            }]);
+            rewardChart.update();
+        });
+    </script>
+</body>
+</html>
